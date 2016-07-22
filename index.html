@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Partial Route Measurements</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="leaflet.css" />
+<link rel="stylesheet" href="leaflet.label.css" />
+
+<script src="leaflet.js"></script>
+<style>
+html {
+  box-sizing: border-box;
+}
+* 	{
+	 box-sizing: inherit;
+	 margin:0;padding:0;    
+	}
+html,body
+{
+	 height:100%;
+	 width:100%;
+}
+.row {
+	width: 100%;
+}
+</style>
+</head>
+
+<body>
+	<div id="map" class="row" style="height:calc(100% - 100px);"></div>
+	<div id="controls" class="row" style="height:100px">
+		<input type="file" id="input" onchange="updateTrack(event);"><BR>
+		<label><input type='checkbox' id="set_start" onclick='setStart(this);'>Set Start</label><BR>
+		<label><input type='checkbox' id="set_end" onclick='setEnd(this);'>Set End</label>
+	</div>
+
+	<script src="leaflet-omnivore.js"></script>
+	<script src="leaflet.geometryutil.js"></script>
+	<script src="leaflet.label.js"></script>
+	<script>
+	function setStart(cb) {
+
+		document.getElementById("set_end").checked = false;
+	}
+	function setEnd(cb) {
+		document.getElementById("set_start").checked = false;
+	}
+
+	var map = L.map('map');
+
+	// create the tile layer with correct attribution
+	var osmUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+	var osmAttrib = 'Map data © OpenStreetMap contributors';
+	L.tileLayer(osmUrl, { attribution: osmAttrib }).addTo(map);
+
+	function onLocationFound(e) {
+		var radius = e.accuracy / 2;
+
+		L.marker(e.latlng).addTo(map)
+			.bindPopup("You are within " + radius + " meters from this point").openPopup();
+
+		L.circle(e.latlng, radius).addTo(map);
+	}
+
+	function onLocationError(e) {
+		alert(e.message);
+	}
+
+	map.on('locationfound', onLocationFound);
+	map.on('locationerror', onLocationError);
+
+	var start, end;
+	var start_marker, end_marker;
+	function onMapClick(e) {
+		if (typeof trackMultiLayer !== "undefined") {
+			var closest = L.GeometryUtil.closestLayerSnap(map, trackLayers, e.latlng, null, true);
+
+			if (document.getElementById("set_start").checked) {
+				start = closest;
+				if (typeof start_marker !== "undefined") {
+					map.removeLayer(start_marker);
+				}
+				start_marker = L.marker(start.latlng).bindLabel("Start", { noHide: true }).addTo(map);
+			}
+			if (document.getElementById("set_end").checked) {
+				end = closest;
+				if (typeof end_marker !== "undefined") {
+					map.removeLayer(end_marker);
+				}
+				end_marker = L.marker(end.latlng).bindLabel("End", { noHide: true }).addTo(map);
+			}
+		}
+	}
+	map.on('click', onMapClick);
+
+	map.locate({setView: true, maxZoom: 16});
+
+	var trackMultiLayer, trackLayers;
+
+	function updateTrack(event) {
+		var track_file = event.target.files[0];
+		console.log(track_file);
+
+		var reader = new FileReader();
+		reader.onload = function(e) {
+			if (typeof trackMultiLayer !== "undefined") {
+				map.removeLayer(trackMultiLayer);
+			}
+			
+			text = e.target.result;
+
+			trackMultiLayer = omnivore.gpx.parse(text);
+			if (! trackMultiLayer.getBounds().isValid()) {
+				trackMultiLayer = omnivore.kml.parse(text);
+			}
+
+			trackLayers = trackMultiLayer.getLayers();
+
+			if (trackMultiLayer.getBounds().isValid()) {
+				map.fitBounds(trackMultiLayer.getBounds());
+				trackMultiLayer.addTo(map);
+			}
+		};
+
+		reader.readAsText(track_file);
+	}
+	</script>
+</body>
+</html>
+
