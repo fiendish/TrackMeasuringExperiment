@@ -71,8 +71,20 @@ html,body
 	map.on('locationfound', onLocationFound);
 	map.on('locationerror', onLocationError);
 
+	var trackMultiLayer, trackLayers;
 	var start, end;
 	var start_marker, end_marker;
+
+	// Function to create a random color
+	// grabbed from http://stackoverflow.com/questions/1484506/random-color-generator-in-javascript
+	function get_random_color() {
+	  return '#'+('00000'+(Math.random()*(1<<24)|0).toString(16)).slice(-6);
+	}
+
+	function findPath(trackLayers, start, end) {
+		// stub
+	}
+
 	function onMapClick(e) {
 		if (typeof trackMultiLayer !== "undefined") {
 			var closest = L.GeometryUtil.closestLayerSnap(map, trackLayers, e.latlng, null, true);
@@ -91,13 +103,14 @@ html,body
 				}
 				end_marker = L.marker(end.latlng).bindLabel("End", { noHide: true }).addTo(map);
 			}
+			if (typeof start !== "undefined" && typeof end !== "undefined") {
+				findPath(trackLayers, start, end);
+			}
 		}
 	}
 	map.on('click', onMapClick);
 
 	map.locate({setView: true, maxZoom: 16});
-
-	var trackMultiLayer, trackLayers;
 
 	function updateTrack(event) {
 		var track_file = event.target.files[0];
@@ -117,6 +130,20 @@ html,body
 			}
 
 			trackLayers = trackMultiLayer.getLayers();
+			for (var i = 0; i < trackLayers.length; i++) {
+				(function(color) {
+					var default_style = {color:color, opacity:1, weight:5};
+					var highlight_style = {color:'blue', opacity:1, weight:10};
+
+					trackLayers[i].setStyle(default_style);
+					trackLayers[i].on('mouseover', function(e) {
+					    e.target.setStyle(highlight_style);
+					});
+					trackLayers[i].on('mouseout', function(e) {
+					    e.target.setStyle(default_style);
+					});
+				})(get_random_color());
+			}
 
 			if (trackMultiLayer.getBounds().isValid()) {
 				map.fitBounds(trackMultiLayer.getBounds());
